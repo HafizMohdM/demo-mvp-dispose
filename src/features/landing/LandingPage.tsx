@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import {
-  Truck, ArrowRight, Recycle,
+  Leaf, Truck, ArrowRight, Recycle,
   Zap, CheckCircle, Home, Building, Building2,
 } from 'lucide-react';
 import TopNav from '../../components/TopNav';
