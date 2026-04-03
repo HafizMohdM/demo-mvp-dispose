@@ -1,216 +1,287 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Calendar, MapPin, Zap, Leaf, Truck, CheckCircle, ChevronRight, BarChart3 } from 'lucide-react';
+import {
+  Calendar, MapPin, Zap, Leaf, Truck, CheckCircle,
+  ChevronRight, BarChart3, Clock, Package, ArrowRight
+} from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { calculateEnergy, calculateCO2Offset } from '../../utils/energy';
+import type { WasteType } from '../../utils/energy';
 import { z } from 'zod';
+import L from 'leaflet';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import TopNav from '../../components/TopNav';
 
-const pickupSchema = z.object({
+L.Marker.prototype.options.icon = L.icon({ iconUrl: markerIcon, shadowUrl: markerShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
+
+const schema = z.object({
   wasteType: z.enum(['Organic', 'Plastic', 'Metal']),
-  weight: z.number().min(1, 'Weight must be at least 1kg').max(500, 'Max 500kg per pickup'),
-  date: z.string().min(1, 'Pickup date is required'),
+  weight: z.number().min(1).max(500),
+  date: z.string().min(1),
 });
 
-const UserPortal: React.FC = () => {
-  const { addTrip, trips, driverLocation } = useAppStore();
-  const [wasteType, setWasteType] = useState<'Organic' | 'Plastic' | 'Metal'>('Plastic');
-  const [weight, setWeight] = useState(10);
-  const [pickupDate, setPickupDate] = useState('');
-  const [success, setSuccess] = useState(false);
+const WASTE_OPTS: { type: WasteType; icon: React.ReactNode; desc: string }[] = [
+  { type: 'Organic', icon: <Leaf size={16} />,    desc: 'Food, garden waste'  },
+  { type: 'Plastic', icon: <Zap size={16} />,     desc: 'Bottles, packaging'  },
+  { type: 'Metal',   icon: <Package size={16} />, desc: 'Cans, scrap metal'   },
+];
 
-  const activeTrip = trips.find(t => t.status !== 'completed');
+const STATUS_BADGE: Record<string, string> = {
+  pending: 'badge-muted', 'in-progress': 'badge-green',
+  arriving: 'badge-yellow', completed: 'badge-muted',
+};
+
+const UserPortal: React.FC = () => {
+  const { addTrip, trips, driverLocation, setView } = useAppStore();
+  const [wasteType, setWasteType] = useState<WasteType>('Plastic');
+  const [weight, setWeight]       = useState(20);
+  const [pickupDate, setPickupDate] = useState('');
+  const [slot, setSlot]           = useState('morning');
+  const [success, setSuccess]     = useState(false);
+
+  const myTrips   = trips.filter(t => t.userId === 'u1');
+  const activeTrip = myTrips.find(t => t.status === 'in-progress' || t.status === 'arriving');
+  const upcoming  = myTrips.filter(t => t.status === 'pending');
+  const history   = myTrips.filter(t => t.status === 'completed');
+
+  const estKWh     = calculateEnergy(weight, wasteType);
+  const estCO2     = calculateCO2Offset(weight);
+  const estEarnings = (weight * 12).toFixed(0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      pickupSchema.parse({ wasteType, weight, date: pickupDate });
-      addTrip({
-        userId: 'u1',
-        userName: 'Current User',
-        pickupLocation: [12.9716, 77.5946],
-        wasteType,
-        weight_kg: weight,
-      });
+      schema.parse({ wasteType, weight, date: pickupDate });
+      addTrip({ userId: 'u1', userName: 'Arjun Mehta', address: '14, MG Road, Bangalore',
+        pickupLocation: [12.9716, 77.5946], wasteType, weight_kg: weight, scheduledDate: pickupDate });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      alert('Validation Error. Check weight (1-500kg) and date.');
-    }
+    } catch { alert('Please fill all fields correctly.'); }
   };
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 animate-fade-in pb-32">
-      {/* Left Column: Hero & Stats */}
-      <div className="lg:col-span-8 space-y-8">
-        <header className="relative h-[240px] rounded-[32px] overflow-hidden group stagger-1">
-          <img 
-            src="/hero.png" 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            alt="Sustainability City"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8">
-            <h1 className="text-4xl font-black text-white tracking-tight">Elevate Your Impact. <br/><span className="text-emerald-400">Power Your City.</span></h1>
+    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+      <TopNav
+        pageLabel="User Portal"
+        right={
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm"
+              style={{ background: 'var(--green-dim)', border: '1px solid var(--border-green)', color: 'var(--green)' }}>A</div>
+            <span className="text-sm font-medium hidden md:block">Arjun Mehta</span>
           </div>
-        </header>
+        }
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-2">
-          <div className="glass-card flex flex-col gap-3 group">
-            <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 w-fit group-hover:scale-110 transition-transform">
-              <Zap size={24} />
-            </div>
-            <div>
-              <p className="text-emerald-500/50 text-xs font-bold uppercase tracking-widest mb-1">Energy Credit</p>
-              <p className="text-3xl font-black">{calculateEnergy(weight, wasteType).toFixed(1)} <span className="text-sm font-normal opacity-50">kWh</span></p>
-            </div>
-          </div>
-          
-          <div className="glass-card flex flex-col gap-3 group">
-            <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 w-fit group-hover:scale-110 transition-transform">
-              <Leaf size={24} />
-            </div>
-            <div>
-              <p className="text-emerald-500/50 text-xs font-bold uppercase tracking-widest mb-1">CO2 Diverted</p>
-              <p className="text-3xl font-black text-white">{calculateCO2Offset(weight).toFixed(1)} <span className="text-sm font-normal opacity-50">kg</span></p>
-            </div>
+      <div className="max-w-6xl mx-auto px-6 md:px-10 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="fade-up">
+            <h1 className="text-2xl font-black tracking-tight">Dashboard</h1>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Welcome back, Arjun. Here's your waste activity.</p>
           </div>
 
-          <div className="glass-card flex flex-col gap-3 group">
-            <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500 w-fit group-hover:scale-110 transition-transform">
-              <BarChart3 size={24} />
+          {/* Summary cards */}
+          <div className="grid grid-cols-3 gap-4 fade-up-2">
+            <div className="card">
+              <div className="icon-box-green mb-3"><Zap size={18} /></div>
+              <p className="text-xl font-black">{estKWh.toFixed(1)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>kWh</span></p>
+              <p className="label mt-1">Energy Credit</p>
             </div>
-            <div>
-              <p className="text-amber-500/50 text-xs font-bold uppercase tracking-widest mb-1">Rank Status</p>
-              <p className="text-3xl font-black text-white">#12 <span className="text-sm font-normal opacity-50">Region</span></p>
+            <div className="card">
+              <div className="icon-box-green mb-3"><Leaf size={18} /></div>
+              <p className="text-xl font-black">{estCO2.toFixed(1)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>kg</span></p>
+              <p className="label mt-1">CO₂ Offset</p>
+            </div>
+            <div className="card">
+              <div className="icon-box-yellow mb-3"><BarChart3 size={18} /></div>
+              <p className="text-xl font-black" style={{ color: 'var(--yellow)' }}>₹{estEarnings}</p>
+              <p className="label mt-1">Rewards Earned</p>
             </div>
           </div>
-        </div>
 
-        {activeTrip ? (
-           <div className="glass-card !p-0 overflow-hidden relative border-emerald-500/40 stagger-3">
-             <div className="p-6 bg-emerald-900/10 border-b border-white/5 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="status-pulse border-2 border-emerald-500/20 shadow-lg"></div>
+          {/* Active tracking */}
+          {activeTrip ? (
+            <div className="card-green fade-up-2">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="live-dot"></span>
                   <div>
-                    <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Active Fleet Tracking</p>
-                    <p className="font-black text-white">Truck #04 is En Route</p>
+                    <p className="font-bold text-sm">Truck #04 is En Route</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Active Fleet Tracking</p>
                   </div>
                 </div>
-                <div className="px-4 py-2 bg-emerald-500 rounded-full text-xs font-black uppercase">ETA: 12 MIN</div>
-             </div>
-             
-             <div className="h-[450px]">
-                <MapContainer center={[12.9716, 77.5946]} zoom={15} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  />
-                  <Marker position={[12.9716, 77.5946]} /> {/* User Location */}
-                  <Marker position={driverLocation} />   {/* Driver Location */}
-                  <Polyline 
-                    positions={[driverLocation, [12.9716, 77.5946]]} 
-                    pathOptions={{ color: "#10b981", dashArray: "12, 12", weight: 3, opacity: 0.8 }}
-                  />
+                <span className="badge-green">ETA: 12 min</span>
+              </div>
+              <div className="rounded-xl overflow-hidden h-[300px]">
+                <MapContainer center={[12.9716, 77.5946]} zoom={14} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                  <Marker position={[12.9716, 77.5946]} />
+                  <Marker position={driverLocation} />
+                  <Polyline positions={[driverLocation, [12.9716, 77.5946]]}
+                    pathOptions={{ color: '#10b981', dashArray: '10,8', weight: 2.5, opacity: 0.8 }} />
                 </MapContainer>
-             </div>
-           </div>
-        ) : (
-          <div className="glass-card flex flex-col items-center justify-center py-20 space-y-6 text-center border-dashed border-2 border-emerald-500/20 stagger-3">
-             <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
-                <MapPin size={40} className="text-emerald-500" />
-             </div>
-             <div>
-                <h3 className="text-2xl font-black tracking-tight text-white">No active pickups detected</h3>
-                <p className="text-emerald-500/50 max-w-sm mx-auto">Start your sustainability journey by scheduling a waste-to-energy collection.</p>
-             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Right Column: Scheduler */}
-      <div className="lg:col-span-4 stagger-2">
-        <div className="glass-card sticky top-8 border-emerald-500/40 !p-8 shadow-2xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-emerald-500/10 rounded-2xl">
-              <Truck className="text-emerald-500" size={28} />
+              </div>
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight leading-none">Schedule<br/><span className="text-emerald-500">Pickup</span></h2>
-          </div>
-          
-          <form className="space-y-8" onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <label className="block text-xs font-black text-emerald-500/50 uppercase tracking-widest">Waste Category</label>
-              <div className="grid grid-cols-1 gap-3">
-                {(['Organic', 'Plastic', 'Metal'] as const).map(type => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setWasteType(type)}
-                    className={`group px-6 py-4 rounded-2xl border-2 text-sm font-black transition-all flex items-center justify-between ${wasteType === type ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-white/5 text-white/40 hover:border-emerald-500/20 hover:text-white/60'}`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-lg ${wasteType === type ? 'bg-emerald-500 text-white' : 'bg-white/5'}`}>
-                        {type === 'Organic' && <Leaf size={18} />}
-                        {type === 'Plastic' && <Zap size={18} />}
-                        {type === 'Metal' && <CheckCircle size={18} />}
-                      </div>
-                      <span className="uppercase tracking-tight">{type}</span>
+          ) : (
+            <div className="card text-center py-12 fade-up-2" style={{ borderStyle: 'dashed' }}>
+              <div className="icon-box-muted mx-auto mb-3"><MapPin size={20} /></div>
+              <p className="font-bold text-sm mb-1">No active pickup</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Schedule one using the form →</p>
+            </div>
+          )}
+
+          {/* Upcoming */}
+          {upcoming.length > 0 && (
+            <div className="fade-up-3">
+              <p className="label mb-3">Upcoming Pickups</p>
+              <div className="space-y-3">
+                {upcoming.map(t => (
+                  <div key={t.id} className="card flex items-center gap-4">
+                    <div className="icon-box-green"><Truck size={18} /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm">{t.wasteType} · {t.weight_kg} kg</p>
+                      <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        <Clock size={11} /> {t.scheduledDate || 'Date TBD'} · {t.address}
+                      </p>
                     </div>
-                    {wasteType === type && <ChevronRight size={20} className="text-emerald-500" />}
-                  </button>
+                    <span className={STATUS_BADGE[t.status]}>{t.status}</span>
+                  </div>
                 ))}
               </div>
             </div>
+          )}
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-baseline mb-2">
-                <label className="text-xs font-black text-emerald-500/50 uppercase tracking-widest">Est. Weight</label>
-                <span className="text-2xl font-black text-white">{weight}kg</span>
+          {/* History table */}
+          {history.length > 0 && (
+            <div className="fade-up-4">
+              <p className="label mb-3">Waste History</p>
+              <div className="card !p-0 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      {['Date', 'Type', 'Weight', 'Energy', 'Earnings', 'Status'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 label">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map(t => (
+                      <tr key={t.id} style={{ borderBottom: '1px solid var(--border)' }}
+                        className="transition-colors hover:bg-[rgba(0,0,0,0.02)]">
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{t.scheduledDate || '—'}</td>
+                        <td className="px-4 py-3 font-medium">{t.wasteType}</td>
+                        <td className="px-4 py-3">{t.weight_kg} kg</td>
+                        <td className="px-4 py-3" style={{ color: 'var(--green)' }}>{calculateEnergy(t.weight_kg, t.wasteType).toFixed(1)} kWh</td>
+                        <td className="px-4 py-3" style={{ color: 'var(--yellow)' }}>₹{(t.weight_kg * 12).toFixed(0)}</td>
+                        <td className="px-4 py-3"><span className="badge-muted">Completed</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <input 
-                type="range" 
-                min="1" 
-                max="100" 
-                value={weight}
-                onChange={(e) => setWeight(parseInt(e.target.value))}
-              />
-              <p className="text-xs font-bold text-center text-emerald-500/40 uppercase tracking-widest">Potential ~{(weight * 0.5).toFixed(1)} kWh Generator</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Schedule form */}
+        <div className="lg:col-span-4 fade-up-2">
+          <div className="card sticky top-6" style={{ borderColor: 'var(--border-green)' }}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="icon-box-green"><Truck size={18} /></div>
+              <div>
+                <h2 className="font-black text-base">Schedule Pickup</h2>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Book a collection slot</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 pt-4 border-t border-white/5">
-               <div className="space-y-2">
-                  <label className="block text-xs font-black text-emerald-500/50 uppercase tracking-widest">Service Date</label>
-                  <div className="relative">
-                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500/50 pointer-events-none" size={18} />
-                    <input 
-                      type="date" 
-                      value={pickupDate}
-                      onChange={(e) => setPickupDate(e.target.value)}
-                    />
-                  </div>
-               </div>
-               <div className="space-y-2">
-                  <label className="block text-xs font-black text-emerald-500/50 uppercase tracking-widest">Preferred Slot</label>
-                  <div className="relative">
-                    <select>
-                      <option>मॉर्निंग (09:00 - 12:00)</option>
-                      <option>इव्हनिंग (15:00 - 18:00)</option>
-                    </select>
-                  </div>
-               </div>
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Waste type */}
+              <div>
+                <p className="label mb-2">Waste Category</p>
+                <div className="space-y-2">
+                  {WASTE_OPTS.map(({ type, icon, desc }) => (
+                    <button key={type} type="button" onClick={() => setWasteType(type)}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                      style={{
+                        border: wasteType === type ? '1px solid var(--green)' : '1px solid var(--border)',
+                        background: wasteType === type ? 'var(--green-dim)' : 'transparent',
+                        color: wasteType === type ? 'var(--text)' : 'var(--text-muted)',
+                      }}
+                    >
+                      <span style={{ color: wasteType === type ? 'var(--green)' : 'var(--text-muted)' }}>{icon}</span>
+                      <span className="flex-1 text-left">{type}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-subtle)' }}>{desc}</span>
+                      {wasteType === type && <ChevronRight size={14} style={{ color: 'var(--green)' }} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <button 
-              type="submit" 
-              disabled={success}
-              className={`w-full btn-primary py-5 !rounded-2xl text-xl font-black uppercase tracking-widest group ${success ? 'bg-emerald-600' : ''}`}
-            >
-              {success ? (
-                <>SUCCESS! <CheckCircle className="animate-bounce" /></>
-              ) : (
-                <>REQUEST PICKUP <Truck size={24} className="group-hover:translate-x-2 transition-transform" /></>
-              )}
-            </button>
-          </form>
+              {/* Weight */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="label">Estimated Weight</p>
+                  <span className="font-black text-base">{weight} kg</span>
+                </div>
+                <input type="range" min="1" max="100" value={weight} onChange={e => setWeight(+e.target.value)} />
+                <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-subtle)' }}>
+                  <span>1 kg</span><span>100 kg</span>
+                </div>
+              </div>
+
+              {/* Estimate preview */}
+              <div className="rounded-xl p-3 grid grid-cols-2 gap-3" style={{ background: 'var(--bg-card-2)' }}>
+                <div>
+                  <p className="label mb-1">Est. Energy</p>
+                  <p className="font-bold text-sm" style={{ color: 'var(--green)' }}>{estKWh.toFixed(1)} kWh</p>
+                </div>
+                <div>
+                  <p className="label mb-1">Est. Earnings</p>
+                  <p className="font-bold text-sm" style={{ color: 'var(--yellow)' }}>₹{estEarnings}</p>
+                </div>
+              </div>
+
+              {/* Date & slot */}
+              <div className="space-y-3">
+                <div>
+                  <p className="label mb-1.5">Service Date</p>
+                  <div className="relative">
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" size={16}
+                      style={{ color: 'var(--text-muted)' }} />
+                    <input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <p className="label mb-1.5">Preferred Slot</p>
+                  <select value={slot} onChange={e => setSlot(e.target.value)}>
+                    <option value="morning">Morning (09:00 – 12:00)</option>
+                    <option value="evening">Evening (15:00 – 18:00)</option>
+                  </select>
+                </div>
+              </div>
+
+              <button type="submit" disabled={success} className="btn-green w-full justify-center py-3.5 text-sm">
+                {success ? <><CheckCircle size={16} /> Pickup Scheduled!</> : <>Request Pickup <ArrowRight size={16} /></>}
+              </button>
+            </form>
+
+            {/* Plan info */}
+            <div className="mt-6 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="label mb-0.5">Current Plan</p>
+                  <p className="font-bold text-sm">Premium · Flat</p>
+                </div>
+                <span className="badge-green">Active</span>
+              </div>
+              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>4 of 6 pickups used this month</p>
+              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                <div className="h-full rounded-full" style={{ width: '66%', background: 'var(--green)' }}></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

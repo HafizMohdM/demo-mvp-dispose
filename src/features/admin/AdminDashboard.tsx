@@ -1,194 +1,211 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Zap, Leaf, Globe, Truck, ArrowUpRight, Filter, Download, BarChart3 } from 'lucide-react';
+import {
+  Zap, Leaf, Truck, IndianRupee, ArrowUpRight,
+  BarChart3, Clock, MapPin, Filter, Download
+} from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-
-// Fix Leaflet marker icons
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import TopNav from '../../components/TopNav';
 
-let DefaultIcon = L.icon({
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+L.Marker.prototype.options.icon = L.icon({ iconUrl: markerIcon, shadowUrl: markerShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
+
+const STATUS_BADGE: Record<string, string> = {
+  pending: 'badge-muted', 'in-progress': 'badge-green',
+  arriving: 'badge-yellow', completed: 'badge-muted',
+};
 
 const AdminDashboard: React.FC = () => {
-  const { totalKWh, totalCO2Offset, trips, driverLocation } = useAppStore();
+  const { totalKWh, totalCO2Offset, totalRevenue, trips, driverLocation, setView } = useAppStore();
+  const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
+
+  const activeFleet = trips.filter(t => t.status === 'in-progress' || t.status === 'arriving').length;
+  const filtered    = filter === 'all' ? trips : trips.filter(t => t.status === filter);
+
+  const METRICS = [
+    { icon: <Zap size={18} />,         label: 'Energy Generated', value: `${totalKWh.toLocaleString()} kWh`,    delta: '+12.4%', yellow: false },
+    { icon: <Leaf size={18} />,        label: 'CO₂ Offset',       value: `${totalCO2Offset.toLocaleString()} kg`, delta: '+8.1%',  yellow: false },
+    { icon: <Truck size={18} />,       label: 'Active Fleet',     value: `${activeFleet} Trucks`,               delta: 'LIVE',   yellow: true  },
+    { icon: <IndianRupee size={18} />, label: 'Revenue',          value: `₹${totalRevenue.toLocaleString()}`,   delta: '+5.3%',  yellow: false },
+  ];
 
   return (
-    <div className="p-8 max-w-[1500px] mx-auto space-y-10 animate-fade-in pb-32">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 stagger-1">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-emerald-500 font-black text-xs uppercase tracking-[0.2em] mb-1">
-            <span className="w-8 h-[2px] bg-emerald-500"></span>
-            System Intelligence
-          </div>
-          <h1 className="text-5xl font-black text-white tracking-tighter leading-none">Waste-to-Energy<br/><span className="text-emerald-500">Orchestrator</span></h1>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="glass-card !py-3 !px-6 flex items-center gap-3 !rounded-2xl border-white/5 hover:border-emerald-500/20">
-            <Globe size={18} className="text-emerald-500" />
-            <select className="bg-transparent border-none text-white outline-none cursor-pointer font-bold text-sm tracking-tight capitalize">
-              <option value="bangalore">Bangalore Metropolitan</option>
-              <option value="mumbai">Mumbai Region</option>
-            </select>
-          </div>
-          <button className="glass-card !p-3 !rounded-2xl border-white/5 hover:bg-white/5">
-            <Filter size={20} className="text-white/60" />
-          </button>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-2">
-        {/* Metric 1 */}
-        <div className="glass-card group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Zap size={80} className="text-emerald-500" />
-          </div>
-          <div className="space-y-4 relative z-10">
-            <div className="flex justify-between items-center">
-              <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400">
-                <Zap size={24} />
-              </div>
-              <span className="text-emerald-500 text-xs font-black flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                <ArrowUpRight size={14} /> +12.4%
-              </span>
-            </div>
-            <div>
-              <h3 className="font-bold text-emerald-500/50 text-xs uppercase tracking-widest mb-1">Total Generated Output</h3>
-              <p className="text-5xl font-black text-white tracking-tighter">{totalKWh.toLocaleString()} <span className="text-lg font-bold opacity-30">kWh</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="glass-card group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Leaf size={80} className="text-emerald-500" />
-          </div>
-          <div className="space-y-4 relative z-10">
-            <div className="flex justify-between items-center">
-              <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400">
-                <Leaf size={24} />
-              </div>
-              <span className="text-emerald-500 text-xs font-black flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                <ArrowUpRight size={14} /> +8.1%
-              </span>
-            </div>
-            <div>
-              <h3 className="font-bold text-emerald-500/50 text-xs uppercase tracking-widest mb-1">Carbon Offset Index</h3>
-              <p className="text-5xl font-black text-white tracking-tighter">{totalCO2Offset.toLocaleString()} <span className="text-lg font-bold opacity-30">kg</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="glass-card group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Truck size={80} className="text-amber-500" />
-          </div>
-          <div className="space-y-4 relative z-10">
-            <div className="flex justify-between items-center">
-              <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500">
-                <Truck size={24} />
-              </div>
-              <span className="text-amber-500 text-xs font-black flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-lg">
-                LIVE
-              </span>
-            </div>
-            <div>
-              <h3 className="font-bold text-amber-500/50 text-xs uppercase tracking-widest mb-1">Active Logistics Fleet</h3>
-              <p className="text-5xl font-black text-white tracking-tighter">04 <span className="text-lg font-bold opacity-30">Trucks</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 stagger-3">
-        {/* Map View */}
-        <div className="lg:col-span-8 glass-card !p-0 overflow-hidden relative border-emerald-500/20 shadow-2xl min-h-[600px]">
-          <div className="absolute top-6 left-6 z-[500] glass-card !bg-black/80 !py-3 !px-5 !rounded-2xl flex items-center gap-4">
-            <div className="status-pulse border-2 border-emerald-500/30"></div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Fleet Operations</span>
-              <span className="text-xs font-bold text-white">Live Tracking Active</span>
-            </div>
-            <div className="h-4 w-[1px] bg-white/10 mx-1"></div>
-            <button className="text-white/50 hover:text-white transition-colors">
-              <Download size={16} />
+    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+      <TopNav
+        pageLabel="Admin"
+        right={
+          <div className="flex items-center gap-2">
+            <button className="btn-outline text-xs py-1.5 px-3 gap-1.5">
+              <Download size={13} /> Export
             </button>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm"
+              style={{ background: 'var(--green-dim)', border: '1px solid var(--border-green)', color: 'var(--green)' }}>A</div>
           </div>
-          
-          <MapContainer center={[12.9716, 77.5946]} zoom={13} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
-            {trips.map(trip => (
-              <Marker key={trip.id} position={trip.pickupLocation}>
-                <Popup>
-                  <div className="p-2 font-['Outfit']">
-                    <h4 className="font-black text-emerald-900 uppercase tracking-tight">{trip.userName}</h4>
-                    <p className="text-xs font-bold text-emerald-700/60 uppercase mb-2">Category: {trip.wasteType}</p>
-                    <div className="flex justify-between gap-4 text-[10px] bg-emerald-50 px-2 py-1 rounded">
-                      <span className="font-black">Load: {trip.weight_kg}kg</span>
-                      <span className="font-black uppercase">{trip.status}</span>
+        }
+      />
+
+      <div className="max-w-7xl mx-auto px-6 md:px-10 py-8 space-y-8">
+        {/* Title */}
+        <div className="fade-up">
+          <h1 className="text-2xl font-black tracking-tight">Operations Overview</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Bangalore Metropolitan · Live data</p>
+        </div>
+
+        {/* Metrics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 fade-up-2">
+          {METRICS.map(m => (
+            <div key={m.label} className="card">
+              <div className="flex justify-between items-start mb-4">
+                <div className={m.yellow ? 'icon-box-yellow' : 'icon-box-green'}>{m.icon}</div>
+                <span className={m.yellow ? 'badge-yellow flex items-center gap-1' : 'badge-green flex items-center gap-1'}>
+                  {m.delta !== 'LIVE' && <ArrowUpRight size={11} />}{m.delta}
+                </span>
+              </div>
+              <p className="text-2xl font-black tracking-tight">{m.value}</p>
+              <p className="label mt-1">{m.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Map + Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 fade-up-3">
+          {/* Map */}
+          <div className="lg:col-span-8">
+            <div className="card !p-0 overflow-hidden">
+              <div className="flex justify-between items-center px-5 py-4"
+                style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-3">
+                  <span className="live-dot"></span>
+                  <div>
+                    <p className="font-bold text-sm">Fleet Tracking</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Live positions · {activeFleet} active</p>
+                  </div>
+                </div>
+                <button className="btn-outline text-xs py-1.5 px-3 gap-1.5">
+                  <Filter size={12} /> Filter
+                </button>
+              </div>
+              <div className="h-[480px]">
+                <MapContainer center={[12.9716, 77.5946]} zoom={12} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                  {trips.map(trip => (
+                    <Marker key={trip.id} position={trip.pickupLocation}>
+                      <Popup>
+                        <div style={{ fontFamily: 'Outfit, sans-serif', padding: 4 }}>
+                          <p style={{ fontWeight: 800, marginBottom: 4 }}>{trip.userName}</p>
+                          <p style={{ fontSize: 11, opacity: 0.6 }}>{trip.wasteType} · {trip.weight_kg} kg</p>
+                          <p style={{ fontSize: 11, fontWeight: 700, marginTop: 4, textTransform: 'uppercase' }}>{trip.status}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                  <Marker position={driverLocation}>
+                    <Popup>
+                      <div style={{ fontFamily: 'Outfit, sans-serif', padding: 4 }}>
+                        <p style={{ fontWeight: 800 }}>Fleet-04 · Active</p>
+                        <p style={{ fontSize: 11, opacity: 0.6 }}>Tracking engaged</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Side panel */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Grid performance */}
+            <div className="card">
+              <p className="label mb-4">Grid Performance</p>
+              <div className="space-y-4">
+                {[
+                  { label: 'Load Distribution', val: 92 },
+                  { label: 'Fleet Efficiency',   val: 87 },
+                  { label: 'Route Optimization', val: 78 },
+                ].map(item => (
+                  <div key={item.label}>
+                    <div className="flex justify-between mb-1.5">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                      <span className="font-bold text-xs" style={{ color: 'var(--green)' }}>{item.val}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${item.val}%`, background: 'var(--green)' }}></div>
                     </div>
                   </div>
-                </Popup>
-              </Marker>
-            ))}
-            <Marker position={driverLocation}>
-                <Popup>
-                  <div className="p-2 font-['Outfit']">
-                    <h4 className="font-black text-blue-900 border-b border-blue-100 mb-1">Fleet-Active-04</h4>
-                    <p className="text-[10px] font-bold opacity-60">Status: Tracking Engaged</p>
+                ))}
+              </div>
+            </div>
+
+            {/* Recent activity */}
+            <div className="card">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 size={16} style={{ color: 'var(--green)' }} />
+                <p className="font-bold text-sm">Recent Activity</p>
+              </div>
+              <div className="space-y-3">
+                {trips.slice(0, 5).map(trip => (
+                  <div key={trip.id} className="flex items-center gap-3 py-2"
+                    style={{ borderBottom: '1px solid var(--border)' }}>
+                    <div className="icon-box-muted !w-8 !h-8 !rounded-lg"><MapPin size={13} /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs truncate">{trip.userName}</p>
+                      <p className="text-[10px] flex items-center gap-1 mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        <Clock size={9} /> {trip.wasteType} · {trip.weight_kg} kg
+                      </p>
+                    </div>
+                    <span className={STATUS_BADGE[trip.status] || 'badge-muted'}>{trip.status}</span>
                   </div>
-                </Popup>
-            </Marker>
-          </MapContainer>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Task Activity Side Panel */}
-        <div className="lg:col-span-4 space-y-6">
-           <div className="glass-card">
-              <h3 className="font-black text-lg mb-6 flex items-center gap-2 tracking-tighter">
-                <BarChart3 className="text-emerald-500" size={20} />
-                Recent Activity
-              </h3>
-              <div className="space-y-4">
-                 {trips.slice(0, 4).map(trip => (
-                   <div key={trip.id} className="flex gap-4 items-center p-3 rounded-2xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                        {trip.wasteType === 'Plastic' ? <Zap size={18} /> : <Leaf size={18} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white text-sm truncate">{trip.userName}</p>
-                        <p className="text-[10px] text-emerald-500/50 uppercase font-black tracking-widest">{trip.status}</p>
-                      </div>
-                      <span className="text-xs font-bold text-white/40">2m ago</span>
-                   </div>
-                 ))}
-              </div>
-           </div>
-
-           <div className="glass-card bg-emerald-500/5 border-emerald-500/20">
-              <p className="text-xs font-black uppercase text-emerald-500 tracking-widest mb-4">Grid Performance</p>
-              <div className="space-y-4">
-                 <div className="flex justify-between text-sm">
-                   <span className="text-white/60">Load distribution</span>
-                   <span className="font-bold text-white">92% Optimal</span>
-                 </div>
-                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div className="w-[92%] h-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
-                 </div>
-              </div>
-           </div>
+        {/* Trips table */}
+        <div className="fade-up-4">
+          <div className="flex justify-between items-center mb-4">
+            <p className="font-bold text-sm">All Trips</p>
+            <div className="flex gap-2">
+              {(['all', 'pending', 'in-progress', 'completed'] as const).map(f => (
+                <button key={f} onClick={() => setFilter(f)}
+                  className="text-xs py-1.5 px-3 rounded-lg font-medium transition-all capitalize"
+                  style={{
+                    border: filter === f ? '1px solid var(--green)' : '1px solid var(--border)',
+                    background: filter === f ? 'var(--green-dim)' : 'transparent',
+                    color: filter === f ? 'var(--green)' : 'var(--text-muted)',
+                  }}
+                >{f}</button>
+              ))}
+            </div>
+          </div>
+          <div className="card !p-0 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  {['User', 'Address', 'Type', 'Weight', 'Energy', 'Revenue', 'Status'].map(h => (
+                    <th key={h} className="text-left px-4 py-3 label">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(t => (
+                  <tr key={t.id} style={{ borderBottom: '1px solid var(--border)' }}
+                    className="transition-colors hover:bg-[rgba(0,0,0,0.02)]">
+                    <td className="px-4 py-3 font-medium text-sm">{t.userName}</td>
+                    <td className="px-4 py-3 text-xs max-w-[160px] truncate" style={{ color: 'var(--text-muted)' }}>{t.address}</td>
+                    <td className="px-4 py-3 text-sm">{t.wasteType}</td>
+                    <td className="px-4 py-3 text-sm">{t.weight_kg} kg</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--green)' }}>{(t.weight_kg * 0.5).toFixed(1)} kWh</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--yellow)' }}>₹{t.weight_kg * 12}</td>
+                    <td className="px-4 py-3"><span className={STATUS_BADGE[t.status] || 'badge-muted'}>{t.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
