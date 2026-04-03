@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #059669;
+  --primary-light: #10b981;
+  --secondary: #064E3B;
+  --bg-deep: #070d0b;
+  --glass-bg: rgba(10, 18, 14, 0.65);
+  --glass-border: rgba(5, 150, 105, 0.25);
+  --text-main: #ecfdf5;
+  --text-muted: rgba(167, 243, 208, 0.5);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- Glass Card ---- */
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(160deg, rgba(5,150,105,0.15) 0%, transparent 50%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 48px rgba(5, 150, 105, 0.12);
+    border-color: rgba(5, 150, 105, 0.4);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    color: white;
+    border: none;
+    padding: 0.875rem 1.75rem;
+    border-radius: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    transition: all 0.25s ease;
+    box-shadow: 0 6px 20px -4px rgba(5, 150, 105, 0.45);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 28px -4px rgba(5, 150, 105, 0.55);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0px);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #ffffff 0%, #34d399 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* ---- Custom Form Controls ---- */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(5, 150, 105, 0.15);
+  border-radius: 999px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+input[type="date"],
+select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+input[type="date"]:focus,
+select:focus {
+  border-color: var(--primary-light);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+select option {
+  background: #0d1a14;
+  color: white;
+}
+
+/* ---- Animations ---- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.stagger-1 { animation: fadeInUp 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) 0s forwards; }
+.stagger-2 { animation: fadeInUp 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) 0.08s forwards; opacity: 0; }
+.stagger-3 { animation: fadeInUp 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) 0.16s forwards; opacity: 0; }
+
+/* Pulsing indicator */
+.status-pulse {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  border-radius: inherit;
+  animation: statusPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes statusPulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* ---- Leaflet Overrides ---- */
+.leaflet-container {
+  border-radius: 20px !important;
+  background: var(--bg-deep) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(5, 150, 105, 0.3);
+  border-radius: 999px;
+}
